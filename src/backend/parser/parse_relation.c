@@ -36,7 +36,11 @@
 #include "utils/rel.h"
 #include "utils/syscache.h"
 #include "utils/varlena.h"
-
+#include "tcop/utility.h"
+#include "common/hashfn.h"
+#include "access/xact.h"
+#include "foreign/foreign.h"
+#include "foreign/fdwapi.h"
 
 /*
  * Support for fuzzily matching columns.
@@ -1429,6 +1433,86 @@ addRangeTableEntry(ParseState *pstate,
 	 * relcache entry for the rel.  Since this is typically the first access
 	 * to a rel in a statement, we must open the rel with the proper lockmode.
 	 */
+	if (relation->foreignserver != NULL)
+	{
+		ForeignServer 		*server;
+		ForeignDataWrapper  *fdw;
+		FdwRoutine 			*fdw_routine;
+		char				 my_temp_nspname[NAMEDATALEN];
+		char				 my_temp_ftbname[200];
+		char				 my_fina_ftbname[NAMEDATALEN];
+		RangeVar			*rangeVar;
+		Oid					 ftbrelid;
+		StringInfoData		 ifssql = { 0 };
+		List				*pt1,*pt2;
+		ListCell			*lc1,*lc2,*lc3;
+		uint64				 raw_hash,fina_hash;
+
+		server = GetForeignServerByName(relation->foreignserver, false);
+		if (server == NULL)
+			ereport(ERROR, (errcode(ERRCODE_FDW_ERROR), errmsg("database link \"%s\" does not exist", relation->foreignserver)));
+
+		snprintf(my_temp_ftbname, sizeof(my_temp_ftbname), "%s_%s_%s", relation->foreignserver, relation->schemaname, relation->relname);
+		raw_hash = hash_bytes_extended((unsigned char *)my_temp_ftbname, strlen(my_temp_ftbname), UINT64CONST(0x7A5B22367996DCFD));
+		fina_hash = hash_combine64(0, raw_hash);
+		snprintf(my_fina_ftbname, sizeof(my_fina_ftbname), "%lu", fina_hash);
+
+		fdw = GetForeignDataWrapper(server->fdwid);
+		fdw_routine = GetFdwRoutine(fdw->fdwhandler);
+		if (fdw_routine->ImportForeignSchema == NULL)
+			ereport(ERROR, (errcode(ERRCODE_FDW_NO_SCHEMAS), errmsg("foreign-data wrapper \"%s\" does not support IMPORT FOREIGN SCHEMA", fdw->fdwname)));
+
+		snprintf(my_temp_nspname, sizeof(my_temp_nspname), "pg_temp_%d", MyBackendId);
+		rangeVar = makeRangeVar(my_temp_nspname, my_fina_ftbname, -1);
+		ftbrelid = RangeVarGetRelid(rangeVar, NoLock, true);
+		if (!OidIsValid(ftbrelid))
+		{
+			initStringInfo(&ifssql);
+			appendStringInfo(&ifssql, "IMPORT FOREIGN SCHEMA %s LIMIT TO (%s) FROM SERVER %s INTO %s", quote_identifier(relation->schemaname), quote_identifier(relation->relname), quote_identifier(relation->foreignserver), my_temp_nspname);
+			pt1 = pg_parse_query(ifssql.data);
+			foreach(lc1, pt1)
+			{
+				RawStmt *rs = lfirst_node(RawStmt, lc1);
+				ImportForeignSchemaStmt *ifsstmt = (ImportForeignSchemaStmt *) rs->stmt;
+				List *cmd_list = fdw_routine->ImportForeignSchema(ifsstmt, server->serverid);
+				if (cmd_list == NIL)
+					ereport(ERROR, (errcode(ERRCODE_FDW_TABLE_NOT_FOUND), errmsg("\"%s.%s\" does not exist in foreign server \"%s\"", relation->schemaname, relation->relname, relation->foreignserver)));
+
+				LookupCreationNamespace("pg_temp");
+				foreach(lc2, cmd_list)
+				{
+					char *cmd = (char *) lfirst(lc2);
+					pt2 = pg_parse_query(cmd);
+					foreach(lc3, pt2)
+					{
+						RawStmt    *rs = lfirst_node(RawStmt, lc3);
+						CreateForeignTableStmt *cstmt = (CreateForeignTableStmt *) rs->stmt;
+						PlannedStmt *pstmt;
+
+						cstmt->base.relation->schemaname = pstrdup(ifsstmt->local_schema);
+						cstmt->base.relation->relname = pstrdup(my_fina_ftbname);
+						cstmt->base.relation->relpersistence = RELPERSISTENCE_TEMP;
+						pstmt = makeNode(PlannedStmt);
+						pstmt->commandType = CMD_UTILITY;
+						pstmt->canSetTag = false;
+						pstmt->utilityStmt = (Node *) cstmt;
+						pstmt->stmt_location = rs->stmt_location;
+						pstmt->stmt_len = rs->stmt_len;
+
+						ProcessUtility(pstmt, cmd, false, PROCESS_UTILITY_SUBCOMMAND, NULL, NULL, None_Receiver, NULL);
+						CommandCounterIncrement();
+					}
+				}
+				AtEOXact_Namespace(true, false);
+			}
+			pfree(ifssql.data);
+		}
+
+		relation->foreignserver = NULL;
+		relation->schemaname = my_temp_nspname;
+		relation->relname = my_fina_ftbname;
+	}
+
 	rel = parserOpenTable(pstate, relation, lockmode);
 	rte->relid = RelationGetRelid(rel);
 	rte->relkind = rel->rd_rel->relkind;

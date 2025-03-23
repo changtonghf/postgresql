@@ -12425,6 +12425,17 @@ relation_expr:
 					$$->inh = true;
 					$$->alias = NULL;
 				}
+			| qualified_name Op name
+				{
+					if (strcmp($2, "@") != 0)
+						ereport(ERROR, (errcode(ERRCODE_SYNTAX_ERROR), errmsg("unrecognized operator \"%s\"", $2), parser_errposition(@2)));
+					if ($1->schemaname == NULL)
+						ereport(ERROR, (errcode(ERRCODE_FDW_SCHEMA_NOT_FOUND), errmsg("\"%s\" need to specify schema to avoid ambiguity on foreign server", $1->relname), parser_errposition(@1)));
+					$$ = $1;
+					$$->foreignserver = $3;
+					$$->inh = true;
+					$$->alias = NULL;
+				}
 			| ONLY qualified_name
 				{
 					/* no inheritance */
