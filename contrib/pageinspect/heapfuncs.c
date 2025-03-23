@@ -37,6 +37,7 @@
 #include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/rel.h"
+#include "utils/lsyscache.h"
 
 /*
  * It's not supported to create tuples with oids anymore, but when pg_upgrade
@@ -619,4 +620,143 @@ heap_tuple_infomask_flags(PG_FUNCTION_ARGS)
 	/* Returns the record as Datum */
 	tuple = heap_form_tuple(tupdesc, values, nulls);
 	PG_RETURN_DATUM(HeapTupleGetDatum(tuple));
+}
+
+static Datum
+tuple_to_array_internal(Oid relid, char *tupdata, uint16 tupdata_len, uint16 t_infomask, uint16 t_infomask2, bits8 *t_bits)
+{
+	ArrayBuildState	*raw_attrs;
+	int				 nattrs;
+	int				 i;
+	int				 off = 0;
+	Relation		 rel;
+	TupleDesc		 tupdesc;
+
+	rel = relation_open(relid, AccessShareLock);
+	tupdesc = RelationGetDescr(rel);
+
+	raw_attrs = initArrayResult(TEXTOID, CurrentMemoryContext, false);
+	nattrs = tupdesc->natts;
+
+	if (rel->rd_rel->relam != HEAP_TABLE_AM_OID)
+		ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED), errmsg("only heap AM is supported")));
+
+	if (nattrs < (t_infomask2 & HEAP_NATTS_MASK))
+		ereport(ERROR, (errcode(ERRCODE_DATA_CORRUPTED), errmsg("number of attributes in tuple header is greater than number of attributes in tuple descriptor")));
+
+	for (i = 0; i < nattrs; i++)
+	{
+		Form_pg_attribute attr;
+		bool		is_null;
+		text	   *attr_data = NULL;
+		Oid			typOutput;
+		bool		isVarlena;
+
+		attr = TupleDescAttr(tupdesc, i);
+
+		if (i >= (t_infomask2 & HEAP_NATTS_MASK))
+			is_null = true;
+		else
+			is_null = (t_infomask & HEAP_HASNULL) && att_isnull(i, t_bits);
+
+		if (!is_null)
+		{
+			int			len;
+
+			if (attr->attlen == -1)
+			{
+				off = att_align_pointer(off, attr->attalign, -1, tupdata + off);
+
+				if (VARATT_IS_EXTERNAL(tupdata + off) && !VARATT_IS_EXTERNAL_ONDISK(tupdata + off) && !VARATT_IS_EXTERNAL_INDIRECT(tupdata + off))
+					ereport(ERROR, (errcode(ERRCODE_DATA_CORRUPTED), errmsg("first byte of varlena attribute is incorrect for attribute %d", i)));
+
+				len = VARSIZE_ANY(tupdata + off);
+			}
+			else
+			{
+				off = att_align_nominal(off, attr->attalign);
+				len = attr->attlen;
+			}
+
+			if (tupdata_len < off + len)
+				ereport(ERROR, (errcode(ERRCODE_DATA_CORRUPTED), errmsg("unexpected end of tuple data")));
+
+			getTypeOutputInfo(attr->atttypid, &typOutput, &isVarlena);
+			if (attr->attlen == -1)
+			{
+				attr_data = cstring_to_text(OidOutputFunctionCall(typOutput, (Datum)PG_DETOAST_DATUM_COPY(tupdata + off)));
+			}
+			else
+			{
+				attr_data = cstring_to_text(OidOutputFunctionCall(typOutput, fetchatt(attr, tupdata + off)));
+			}
+
+			off = att_addlength_pointer(off, attr->attlen, tupdata + off);
+		}
+
+		raw_attrs = accumArrayResult(raw_attrs, PointerGetDatum(attr_data), is_null, TEXTOID, CurrentMemoryContext);
+		if (attr_data)
+			pfree(attr_data);
+	}
+
+	if (tupdata_len != off)
+		ereport(ERROR, (errcode(ERRCODE_DATA_CORRUPTED), errmsg("end of tuple reached without looking at all its data")));
+
+	relation_close(rel, AccessShareLock);
+
+	return makeArrayResult(raw_attrs, CurrentMemoryContext);
+}
+
+PG_FUNCTION_INFO_V1(tuple_to_array);
+
+Datum
+tuple_to_array(PG_FUNCTION_ARGS)
+{
+	Oid			relid;
+	bytea	   *raw_data;
+	uint16		t_infomask;
+	uint16		t_infomask2;
+	char	   *t_bits_str;
+	bits8	   *t_bits = NULL;
+	Datum		res;
+
+	relid = PG_GETARG_OID(0);
+	raw_data = PG_ARGISNULL(1) ? NULL : PG_GETARG_BYTEA_P(1);
+	t_infomask = PG_GETARG_INT16(2);
+	t_infomask2 = PG_GETARG_INT16(3);
+	t_bits_str = PG_ARGISNULL(4) ? NULL : text_to_cstring(PG_GETARG_TEXT_PP(4));
+
+	if (!superuser())
+		ereport(ERROR, (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), errmsg("must be superuser to use raw page functions")));
+
+	if (!raw_data)
+		PG_RETURN_NULL();
+
+	if (t_infomask & HEAP_HASNULL)
+	{
+		int		bits_str_len;
+		int		bits_len;
+
+		bits_len = BITMAPLEN(t_infomask2 & HEAP_NATTS_MASK) * BITS_PER_BYTE;
+		if (!t_bits_str)
+			ereport(ERROR, (errcode(ERRCODE_DATA_CORRUPTED), errmsg("t_bits string must not be NULL")));
+
+		bits_str_len = strlen(t_bits_str);
+		if (bits_len != bits_str_len)
+			ereport(ERROR, (errcode(ERRCODE_DATA_CORRUPTED), errmsg("unexpected length of t_bits string: %u, expected %u", bits_str_len, bits_len)));
+
+		t_bits = text_to_bits(t_bits_str, bits_str_len);
+	}
+	else
+	{
+		if (t_bits_str)
+			ereport(ERROR, (errcode(ERRCODE_DATA_CORRUPTED), errmsg("t_bits string is expected to be NULL, but instead it is %zu bytes long", strlen(t_bits_str))));
+	}
+
+	res = tuple_to_array_internal(relid, (char *) raw_data + VARHDRSZ, VARSIZE(raw_data) - VARHDRSZ, t_infomask, t_infomask2, t_bits);
+
+	if (t_bits)
+		pfree(t_bits);
+
+	PG_RETURN_ARRAYTYPE_P(res);
 }

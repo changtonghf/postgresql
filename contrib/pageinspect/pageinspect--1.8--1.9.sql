@@ -135,3 +135,6 @@ CREATE FUNCTION brin_page_items(IN page bytea, IN index_oid regclass,
 RETURNS SETOF record
 AS 'MODULE_PATHNAME', 'brin_page_items'
 LANGUAGE C STRICT PARALLEL SAFE;
+
+CREATE FUNCTION tuple_to_array(rel_oid oid, t_data bytea, t_infomask integer, t_infomask2 integer, t_bits text) 
+RETURNS text[] AS 'MODULE_PATHNAME','tuple_to_array' LANGUAGE C PARALLEL SAFE;
