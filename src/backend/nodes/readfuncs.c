@@ -391,6 +391,7 @@ _readWindowClause(void)
 	READ_BOOL_FIELD(inRangeNullsFirst);
 	READ_UINT_FIELD(winref);
 	READ_BOOL_FIELD(copiedOrder);
+	READ_BOOL_FIELD(winkeep);
 
 	READ_DONE();
 }
@@ -660,6 +661,7 @@ _readAggref(void)
 	READ_INT_FIELD(aggno);
 	READ_INT_FIELD(aggtransno);
 	READ_LOCATION_FIELD(location);
+	READ_BOOL_FIELD(aggkeep);
 
 	READ_DONE();
 }
@@ -699,6 +701,7 @@ _readWindowFunc(void)
 	READ_BOOL_FIELD(winstar);
 	READ_BOOL_FIELD(winagg);
 	READ_LOCATION_FIELD(location);
+	READ_BOOL_FIELD(winkeep);
 
 	READ_DONE();
 }

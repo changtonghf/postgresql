@@ -235,6 +235,7 @@ _equalAggref(const Aggref *a, const Aggref *b)
 	COMPARE_SCALAR_FIELD(aggno);
 	COMPARE_SCALAR_FIELD(aggtransno);
 	COMPARE_LOCATION_FIELD(location);
+	COMPARE_SCALAR_FIELD(aggkeep);
 
 	return true;
 }
@@ -267,6 +268,7 @@ _equalWindowFunc(const WindowFunc *a, const WindowFunc *b)
 	COMPARE_SCALAR_FIELD(winstar);
 	COMPARE_SCALAR_FIELD(winagg);
 	COMPARE_LOCATION_FIELD(location);
+	COMPARE_SCALAR_FIELD(winkeep);
 
 	return true;
 }
@@ -2429,6 +2431,7 @@ _equalFuncCall(const FuncCall *a, const FuncCall *b)
 	COMPARE_SCALAR_FIELD(func_variadic);
 	COMPARE_COERCIONFORM_FIELD(funcformat);
 	COMPARE_LOCATION_FIELD(location);
+	COMPARE_SCALAR_FIELD(agg_keep);
 
 	return true;
 }
@@ -2546,6 +2549,7 @@ _equalWindowDef(const WindowDef *a, const WindowDef *b)
 	COMPARE_NODE_FIELD(startOffset);
 	COMPARE_NODE_FIELD(endOffset);
 	COMPARE_LOCATION_FIELD(location);
+	COMPARE_SCALAR_FIELD(winkeep);
 
 	return true;
 }
@@ -2840,6 +2844,7 @@ _equalWindowClause(const WindowClause *a, const WindowClause *b)
 	COMPARE_SCALAR_FIELD(inRangeNullsFirst);
 	COMPARE_SCALAR_FIELD(winref);
 	COMPARE_SCALAR_FIELD(copiedOrder);
+	COMPARE_SCALAR_FIELD(winkeep);
 
 	return true;
 }

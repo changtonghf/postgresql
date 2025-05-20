@@ -1187,6 +1187,7 @@ _outAggref(StringInfo str, const Aggref *node)
 	WRITE_INT_FIELD(aggno);
 	WRITE_INT_FIELD(aggtransno);
 	WRITE_LOCATION_FIELD(location);
+	WRITE_BOOL_FIELD(aggkeep);
 }
 
 static void
@@ -1216,6 +1217,7 @@ _outWindowFunc(StringInfo str, const WindowFunc *node)
 	WRITE_BOOL_FIELD(winstar);
 	WRITE_BOOL_FIELD(winagg);
 	WRITE_LOCATION_FIELD(location);
+	WRITE_BOOL_FIELD(winkeep);
 }
 
 static void
@@ -2888,6 +2890,7 @@ _outFuncCall(StringInfo str, const FuncCall *node)
 	WRITE_BOOL_FIELD(func_variadic);
 	WRITE_ENUM_FIELD(funcformat, CoercionForm);
 	WRITE_LOCATION_FIELD(location);
+	WRITE_BOOL_FIELD(agg_keep);
 }
 
 static void
@@ -3151,6 +3154,7 @@ _outWindowClause(StringInfo str, const WindowClause *node)
 	WRITE_BOOL_FIELD(inRangeNullsFirst);
 	WRITE_UINT_FIELD(winref);
 	WRITE_BOOL_FIELD(copiedOrder);
+	WRITE_BOOL_FIELD(winkeep);
 }
 
 static void
@@ -3578,6 +3582,7 @@ _outWindowDef(StringInfo str, const WindowDef *node)
 	WRITE_NODE_FIELD(startOffset);
 	WRITE_NODE_FIELD(endOffset);
 	WRITE_LOCATION_FIELD(location);
+	WRITE_BOOL_FIELD(winkeep);
 }
 
 static void

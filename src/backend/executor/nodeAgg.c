@@ -986,6 +986,19 @@ process_ordered_aggregate_multi(AggState *aggstate,
 	{
 		CHECK_FOR_INTERRUPTS();
 
+		if (pertrans->aggkeep && haveOldValue)
+		{
+			tmpcontext->ecxt_outertuple = slot1;
+			tmpcontext->ecxt_innertuple = pertrans->tempslot;
+			if (newAbbrevVal != oldAbbrevVal || !ExecQual(pertrans->keepeqfns, tmpcontext))
+			{
+				ExecClearTuple(slot1);
+				ExecClearTuple(pertrans->tempslot);
+				break;
+			}
+			ResetExprContext(tmpcontext);
+		}
+
 		tmpcontext->ecxt_outertuple = slot1;
 		tmpcontext->ecxt_innertuple = slot2;
 
@@ -1018,6 +1031,12 @@ process_ordered_aggregate_multi(AggState *aggstate,
 				slot2 = slot1;
 				slot1 = tmpslot;
 				/* avoid ExecQual() calls by reusing abbreviated keys */
+				oldAbbrevVal = newAbbrevVal;
+				haveOldValue = true;
+			}
+			if (pertrans->aggkeep)
+			{
+				ExecCopySlot(pertrans->tempslot, slot1);
 				oldAbbrevVal = newAbbrevVal;
 				haveOldValue = true;
 			}
@@ -4254,6 +4273,7 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 		numDistinctCols = 0;
 	}
 
+	pertrans->aggkeep = aggref->aggkeep;
 	pertrans->numSortCols = numSortCols;
 	pertrans->numDistinctCols = numDistinctCols;
 
@@ -4350,6 +4370,21 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
 
 	pertrans->sortstates = (Tuplesortstate **)
 		palloc0(sizeof(Tuplesortstate *) * numGroupingSets);
+
+	if (pertrans->aggkeep)
+	{
+		Oid	*ops;
+		ops = palloc(numSortCols * sizeof(Oid));
+		i = 0;
+		foreach(lc, sortlist)
+			ops[i++] = ((SortGroupClause *) lfirst(lc))->eqop;
+		pertrans->tempslot = 
+			ExecInitExtraTupleSlot(estate, pertrans->sortdesc, &TTSOpsMinimalTuple);
+		pertrans->keepeqfns = 
+			execTuplesMatchPrepare(pertrans->sortdesc, numSortCols, pertrans->sortColIdx, 
+								   ops, pertrans->sortCollations, &aggstate->ss.ps);
+		pfree(ops);
+	}
 }
 
 

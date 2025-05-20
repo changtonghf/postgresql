@@ -1,6 +1,6 @@
 %{
 
-/*#define YYDEBUG 1*/
+#define YYDEBUG 1
 /*-------------------------------------------------------------------------
  *
  * gram.y
@@ -594,14 +594,14 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 %type <with>	with_clause opt_with_clause
 %type <list>	cte_list
 
-%type <list>	within_group_clause
+%type <list>	within_group_clause keep_clause
 %type <node>	filter_clause
 %type <list>	window_clause window_definition_list opt_partition_clause
 %type <windef>	window_definition over_clause window_specification
 				opt_frame_clause frame_extent frame_bound
 %type <ival>	opt_window_exclusion_clause
 %type <str>		opt_existing_window_name
-%type <boolean> opt_if_not_exists
+%type <boolean> opt_if_not_exists dense_rank_option
 %type <ival>	generated_when override_kind
 %type <partspec>	PartitionSpec OptPartitionSpec
 %type <partelem>	part_elem
@@ -653,7 +653,7 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 	CURRENT_TIME CURRENT_TIMESTAMP CURRENT_USER CURSOR CYCLE
 
 	DATA_P DATABASE DAY_P DEALLOCATE DEC DECIMAL_P DECLARE DEFAULT DEFAULTS
-	DEFERRABLE DEFERRED DEFINER DELETE_P DELIMITER DELIMITERS DEPENDS DEPTH DESC
+	DEFERRABLE DEFERRED DEFINER DELETE_P DELIMITER DELIMITERS DENSE_RANK DEPENDS DEPTH DESC
 	DETACH DICTIONARY DISABLE_P DISCARD DISTINCT DO DOCUMENT_P DOMAIN_P
 	DOUBLE_P DROP
 
@@ -675,7 +675,7 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 
 	JOIN
 
-	KEY
+	KEEP KEY
 
 	LABEL LANGUAGE LARGE_P LAST_P LATERAL_P
 	LEADING LEAKPROOF LEAST LEFT LEVEL LIKE LIMIT LISTEN LOAD LOCAL
@@ -13990,7 +13990,7 @@ func_application: func_name '(' ')'
  * (Note that many of the special SQL functions wouldn't actually make any
  * sense as functional index entries, but we ignore that consideration here.)
  */
-func_expr: func_application within_group_clause filter_clause over_clause
+func_expr: func_application within_group_clause filter_clause keep_clause over_clause
 				{
 					FuncCall *n = (FuncCall *) $1;
 					/*
@@ -14022,7 +14022,36 @@ func_expr: func_application within_group_clause filter_clause over_clause
 						n->agg_within_group = true;
 					}
 					n->agg_filter = $3;
-					n->over = $4;
+					if ($4 != NIL)
+					{
+						if ($5 != NULL)
+						{
+							if ($5->orderClause != NIL)
+								ereport(ERROR,
+										(errcode(ERRCODE_SYNTAX_ERROR),
+										errmsg("cannot use multiple ORDER BY clauses with KEEP clause"),
+										parser_errposition(@5)));
+							$5->winkeep = true;
+							$5->orderClause = $4;
+						}
+						else
+						{
+							if (n->agg_order != NIL)
+								ereport(ERROR,
+										(errcode(ERRCODE_SYNTAX_ERROR),
+										errmsg("cannot use multiple ORDER BY clauses with KEEP clause"),
+										parser_errposition(@1)));
+							if ($2 != NIL)
+								ereport(ERROR,
+										(errcode(ERRCODE_SYNTAX_ERROR),
+										errmsg("cannot use multiple ORDER BY clauses with KEEP clause"),
+										parser_errposition(@2)));
+							n->agg_order = $4;
+						}
+						n->agg_keep = true;
+					}
+
+					n->over = $5;
 					$$ = (Node *) n;
 				}
 			| func_expr_common_subexpr
@@ -14419,6 +14448,30 @@ filter_clause:
 			| /*EMPTY*/								{ $$ = NULL; }
 		;
 
+keep_clause:
+			KEEP '(' dense_rank_option sort_clause ')'
+				{
+					if (!$3)
+					{
+						ListCell   *s;
+						foreach(s, $4)
+						{
+							SortBy *sortBy = (SortBy*)lfirst(s);
+							if (sortBy->sortby_dir == SORTBY_ASC || sortBy->sortby_dir == SORTBY_DEFAULT)
+								sortBy->sortby_dir = SORTBY_DESC;
+							else
+								sortBy->sortby_dir = SORTBY_ASC;
+						}
+					}
+					$$ = $4;
+				}
+			| /*EMPTY*/								{ $$ = NIL; }
+		;
+
+dense_rank_option:
+			DENSE_RANK FIRST_P						{ $$ = true; }
+			| DENSE_RANK LAST_P						{ $$ = false; }
+		;
 
 /*
  * Window Definitions
@@ -14456,6 +14509,7 @@ over_clause: OVER window_specification
 					n->startOffset = NULL;
 					n->endOffset = NULL;
 					n->location = @2;
+					n->winkeep = false;
 					$$ = n;
 				}
 			| /*EMPTY*/
@@ -14475,6 +14529,7 @@ window_specification: '(' opt_existing_window_name opt_partition_clause
 					n->startOffset = $5->startOffset;
 					n->endOffset = $5->endOffset;
 					n->location = @1;
+					n->winkeep = false;
 					$$ = n;
 				}
 		;
@@ -14529,6 +14584,7 @@ opt_frame_clause:
 					n->frameOptions = FRAMEOPTION_DEFAULTS;
 					n->startOffset = NULL;
 					n->endOffset = NULL;
+					n->winkeep = false;
 					$$ = n;
 				}
 		;
@@ -14601,6 +14657,7 @@ frame_bound:
 					n->frameOptions = FRAMEOPTION_START_UNBOUNDED_PRECEDING;
 					n->startOffset = NULL;
 					n->endOffset = NULL;
+					n->winkeep = false;
 					$$ = n;
 				}
 			| UNBOUNDED FOLLOWING
@@ -14609,6 +14666,7 @@ frame_bound:
 					n->frameOptions = FRAMEOPTION_START_UNBOUNDED_FOLLOWING;
 					n->startOffset = NULL;
 					n->endOffset = NULL;
+					n->winkeep = false;
 					$$ = n;
 				}
 			| CURRENT_P ROW
@@ -14617,6 +14675,7 @@ frame_bound:
 					n->frameOptions = FRAMEOPTION_START_CURRENT_ROW;
 					n->startOffset = NULL;
 					n->endOffset = NULL;
+					n->winkeep = false;
 					$$ = n;
 				}
 			| a_expr PRECEDING
@@ -14625,6 +14684,7 @@ frame_bound:
 					n->frameOptions = FRAMEOPTION_START_OFFSET_PRECEDING;
 					n->startOffset = $1;
 					n->endOffset = NULL;
+					n->winkeep = false;
 					$$ = n;
 				}
 			| a_expr FOLLOWING
@@ -14633,6 +14693,7 @@ frame_bound:
 					n->frameOptions = FRAMEOPTION_START_OFFSET_FOLLOWING;
 					n->startOffset = $1;
 					n->endOffset = NULL;
+					n->winkeep = false;
 					$$ = n;
 				}
 		;
@@ -15554,6 +15615,7 @@ unreserved_keyword:
 			| DELETE_P
 			| DELIMITER
 			| DELIMITERS
+			| DENSE_RANK
 			| DEPENDS
 			| DEPTH
 			| DETACH
@@ -15616,6 +15678,7 @@ unreserved_keyword:
 			| INSTEAD
 			| INVOKER
 			| ISOLATION
+			| KEEP
 			| KEY
 			| LABEL
 			| LANGUAGE

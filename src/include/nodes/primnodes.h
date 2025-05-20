@@ -341,6 +341,7 @@ typedef struct Aggref
 	int			aggno;			/* unique ID within the Agg node */
 	int			aggtransno;		/* unique ID of transition state in the Agg */
 	int			location;		/* token location, or -1 if unknown */
+	bool		aggkeep;
 } Aggref;
 
 /*
@@ -394,6 +395,7 @@ typedef struct WindowFunc
 	bool		winstar;		/* true if argument list was really '*' */
 	bool		winagg;			/* is function a simple aggregate? */
 	int			location;		/* token location, or -1 if unknown */
+	bool		winkeep;
 } WindowFunc;
 
 /*

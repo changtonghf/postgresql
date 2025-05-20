@@ -96,6 +96,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	WindowDef  *over = (fn ? fn->over : NULL);
 	bool		agg_within_group = (fn ? fn->agg_within_group : false);
 	bool		agg_star = (fn ? fn->agg_star : false);
+	bool		agg_keep = (fn ? fn->agg_keep : false);
 	bool		agg_distinct = (fn ? fn->agg_distinct : false);
 	bool		func_variadic = (fn ? fn->func_variadic : false);
 	CoercionForm funcformat = (fn ? fn->funcformat : COERCE_EXPLICIT_CALL);
@@ -815,6 +816,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 		/* parse_agg.c does additional aggregate-specific processing */
 		transformAggregateCall(pstate, aggref, fargs, agg_order, agg_distinct);
 
+		aggref->aggkeep = agg_keep;
 		retval = (Node *) aggref;
 	}
 	else
@@ -834,6 +836,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 		wfunc->winagg = (fdresult == FUNCDETAIL_AGGREGATE);
 		wfunc->aggfilter = agg_filter;
 		wfunc->location = location;
+		wfunc->winkeep = agg_keep;
 
 		/*
 		 * agg_star is allowed for aggregate functions but distinct isn't

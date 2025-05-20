@@ -818,6 +818,7 @@ typedef struct WindowFuncExprState
 	List	   *args;			/* ExprStates for argument expressions */
 	ExprState  *aggfilter;		/* FILTER expression */
 	int			wfuncno;		/* ID number for wfunc within its plan node */
+	bool		winkeep;
 } WindowFuncExprState;
 
 
@@ -2476,6 +2477,7 @@ typedef struct WindowAggState
 	TupleTableSlot *agg_row_slot;
 	TupleTableSlot *temp_slot_1;
 	TupleTableSlot *temp_slot_2;
+	bool		first_frame;		/* true if frame is first in current partition */
 } WindowAggState;
 
 /* ----------------

@@ -2703,6 +2703,7 @@ transformWindowDefinitions(ParseState *pstate,
 		wc = makeNode(WindowClause);
 		wc->name = windef->name;
 		wc->refname = windef->refname;
+		wc->winkeep = windef->winkeep;
 
 		/*
 		 * Per spec, a windowdef that references a previous one copies the

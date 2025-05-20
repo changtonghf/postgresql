@@ -268,6 +268,35 @@ advance_windowaggregate(WindowAggState *winstate,
 		}
 	}
 
+	/* aggregate over only those rows with the minimum (FIRST) or the maximum (LAST) dense rank */
+	if (wfuncstate->winkeep)
+	{
+		if (!winstate->first_frame)
+		{
+			MemoryContextSwitchTo(oldContext);
+			return;
+		}
+		else
+		{
+			if (winstate->currentpos > 1)
+			{
+				ExecCopySlot(winstate->temp_slot_1, winstate->ss.ss_ScanTupleSlot);
+				(void)tuplestore_gettupleslot(winstate->buffer, false, false, winstate->ss.ss_ScanTupleSlot);
+				ExecCopySlot(winstate->temp_slot_2, winstate->ss.ss_ScanTupleSlot);
+				(void)tuplestore_gettupleslot(winstate->buffer, true, false, winstate->ss.ss_ScanTupleSlot);
+				if (!are_peers(winstate, winstate->temp_slot_2, winstate->temp_slot_1))
+					winstate->first_frame = false;
+				ExecClearTuple(winstate->temp_slot_1);
+				ExecClearTuple(winstate->temp_slot_2);
+				if (!winstate->first_frame)
+				{
+					MemoryContextSwitchTo(oldContext);
+					return;
+				}
+			}
+		}
+	}
+
 	/* We start from 1, since the 0th arg will be the transition value */
 	i = 1;
 	foreach(arg, wfuncstate->args)
@@ -944,7 +973,11 @@ eval_windowaggregates(WindowAggState *winstate)
 		 */
 		ret = row_is_in_frame(winstate, winstate->aggregatedupto, agg_row_slot);
 		if (ret < 0)
+		{
+			if (winstate->first_frame)
+				winstate->first_frame = false;
 			break;
+		}
 		if (ret == 0)
 			goto next_tuple;
 
@@ -1230,6 +1263,7 @@ begin_partition(WindowAggState *winstate)
 	 */
 	tuplestore_puttupleslot(winstate->buffer, winstate->first_part_slot);
 	winstate->spooled_rows++;
+	winstate->first_frame = true;
 }
 
 /*

@@ -2359,6 +2359,7 @@ eval_const_expressions_mutator(Node *node,
 				newexpr->winstar = expr->winstar;
 				newexpr->winagg = expr->winagg;
 				newexpr->location = expr->location;
+				newexpr->winkeep = expr->winkeep;
 
 				return (Node *) newexpr;
 			}

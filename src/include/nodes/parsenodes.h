@@ -369,6 +369,7 @@ typedef struct FuncCall
 	bool		func_variadic;	/* last argument was labeled VARIADIC */
 	CoercionForm funcformat;	/* how to display this node */
 	int			location;		/* token location, or -1 if unknown */
+	bool		agg_keep;
 } FuncCall;
 
 /*
@@ -504,6 +505,7 @@ typedef struct WindowDef
 	Node	   *startOffset;	/* expression for starting bound, if any */
 	Node	   *endOffset;		/* expression for ending bound, if any */
 	int			location;		/* parse location, or -1 if none/unknown */
+	bool		winkeep;
 } WindowDef;
 
 /*
@@ -1381,6 +1383,7 @@ typedef struct WindowClause
 	bool		inRangeNullsFirst;	/* nulls sort first for in_range tests? */
 	Index		winref;			/* ID referenced by window functions */
 	bool		copiedOrder;	/* did we copy orderClause from refname? */
+	bool		winkeep;		/* keep head/tail feature depend on partition and frame */
 } WindowClause;
 
 /*

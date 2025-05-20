@@ -165,6 +165,12 @@ typedef struct AggStatePerTransData
 	FunctionCallInfo serialfn_fcinfo;
 
 	FunctionCallInfo deserialfn_fcinfo;
+	/* state value of keep (dense_rank order by ...) */
+	bool		aggkeep;
+	/* used for record previous tuple in dense_rank ordered set */
+	TupleTableSlot *tempslot;
+	/* used for record equal function oids (compare two rows to see if they are equal) */
+	ExprState  *keepeqfns;
 }			AggStatePerTransData;
 
 /*

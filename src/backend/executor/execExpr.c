@@ -1085,6 +1085,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 													 state->parent);
 					wfstate->aggfilter = ExecInitExpr(wfunc->aggfilter,
 													  state->parent);
+					wfstate->winkeep = wfunc->winkeep;
 
 					/*
 					 * Complain if the windowfunc's arguments contain any

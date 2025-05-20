@@ -3164,7 +3164,7 @@ deparseAggref(Aggref *node, deparse_expr_cxt *context)
 		}
 
 		/* Add ORDER BY */
-		if (node->aggorder != NIL)
+		if (node->aggorder != NIL && !node->aggkeep)
 		{
 			appendStringInfoString(buf, " ORDER BY ");
 			appendAggOrderBy(node->aggorder, node->args, context);
@@ -3176,6 +3176,13 @@ deparseAggref(Aggref *node, deparse_expr_cxt *context)
 	{
 		appendStringInfoString(buf, ") FILTER (WHERE ");
 		deparseExpr((Expr *) node->aggfilter, context);
+	}
+
+	/* Add KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) */
+	if (node->aggkeep && node->aggorder != NIL)
+	{
+		appendStringInfoString(buf, ") KEEP (DENSE_RANK FIRST ORDER BY ");
+		appendAggOrderBy(node->aggorder, node->args, context);
 	}
 
 	appendStringInfoChar(buf, ')');

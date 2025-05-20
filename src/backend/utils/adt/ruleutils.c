@@ -6449,7 +6449,7 @@ get_rule_windowspec(WindowClause *wc, List *targetList,
 		needspace = true;
 	}
 	/* print ordering clause only if not inherited */
-	if (wc->orderClause && !wc->copiedOrder)
+	if (wc->orderClause && !wc->copiedOrder && !wc->winkeep)
 	{
 		if (needspace)
 			appendStringInfoChar(buf, ' ');
@@ -9917,7 +9917,7 @@ get_agg_expr(Aggref *aggref, deparse_context *context,
 			}
 		}
 
-		if (aggref->aggorder != NIL)
+		if (aggref->aggorder != NIL && !aggref->aggkeep)
 		{
 			appendStringInfoString(buf, " ORDER BY ");
 			get_rule_orderby(aggref->aggorder, aggref->args, false, context);
@@ -9928,6 +9928,12 @@ get_agg_expr(Aggref *aggref, deparse_context *context,
 	{
 		appendStringInfoString(buf, ") FILTER (WHERE ");
 		get_rule_expr((Node *) aggref->aggfilter, context, false);
+	}
+
+	if (aggref->aggkeep && aggref->aggorder != NIL)
+	{
+		appendStringInfoString(buf, ") KEEP (DENSE_RANK FIRST ORDER BY ");
+		get_rule_orderby(aggref->aggorder, aggref->args, false, context);
 	}
 
 	appendStringInfoChar(buf, ')');
@@ -9994,6 +10000,17 @@ get_windowfunc_expr(WindowFunc *wfunc, deparse_context *context)
 	{
 		appendStringInfoString(buf, ") FILTER (WHERE ");
 		get_rule_expr((Node *) wfunc->aggfilter, context, false);
+	}
+
+	if (wfunc->winkeep)
+	{
+		appendStringInfoString(buf, ") KEEP (DENSE_RANK FIRST ORDER BY ");
+		foreach(l, context->windowClause)
+		{
+			WindowClause *wc = (WindowClause *) lfirst(l);
+			if (wc->winref == wfunc->winref)
+				get_rule_orderby(wc->orderClause, context->windowTList, false, context);
+		}
 	}
 
 	appendStringInfoString(buf, ") OVER ");
