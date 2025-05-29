@@ -55,7 +55,74 @@ PG_FUNCTION_INFO_V1(pg_logdir_ls_v1_1);
 static int64 pg_file_write_internal(text *file, text *data, bool replace);
 static bool pg_file_rename_internal(text *file1, text *file2, text *file3);
 static Datum pg_logdir_ls_internal(FunctionCallInfo fcinfo);
+static int MakePGDirectoryRecursive(const char *directoryName);
 
+/*
+ * MakePGDirectoryRecursive
+ *
+ * Recursively create a directory and all its parent directories if they do not exist.
+ *
+ * directoryName: the path of the directory to create.
+ *
+ * Returns 0 on success, or -1 on failure with errno set appropriately.
+ *
+ * The function iterates through each component of the given directory path,
+ * creating any missing directories along the way. If a component exists but is
+ * not a directory, it fails with ENOTDIR. If a directory already exists, it is
+ * not treated as an error. The function ensures that the path does not exceed
+ * the maximum allowed length.
+ */
+static int
+MakePGDirectoryRecursive(const char *directoryName)
+{
+	char path[MAXPGPATH];
+	size_t len = strlen(directoryName);
+	size_t i;
+
+	if (len == 0 || len >= sizeof(path))
+	{
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+
+	strlcpy(path, directoryName, sizeof(path));
+	while (len > 1 && path[len - 1] == '/') path[--len] = '\0';
+
+	for (i = 1; i <= len; i++)
+	{
+		if (path[i] == '/' || path[i] == '\0')
+		{
+			char saved = path[i];
+			path[i] = '\0';
+			if (strlen(path) > 0)
+			{
+				struct stat st;
+				if (stat(path, &st) != 0)
+				{
+					if (errno != ENOENT)
+					{
+						path[i] = saved;
+						return -1;
+					}
+					if (MakePGDirectory(path) < 0 && errno != EEXIST)
+					{
+						path[i] = saved;
+						return -1;
+					}
+				}
+				else if (!S_ISDIR(st.st_mode))
+				{
+					errno = ENOTDIR;
+					path[i] = saved;
+					return -1;
+				}
+			}
+			path[i] = saved;
+		}
+	}
+
+	return 0;
+}
 
 /*-----------------------
  * some helper functions
@@ -196,10 +263,25 @@ pg_file_write_internal(text *file, text *data, bool replace)
 		f = AllocateFile(filename, "ab");
 
 	if (!f)
-		ereport(ERROR,
-				(errcode_for_file_access(),
-				 errmsg("could not open file \"%s\" for writing: %m",
-						filename)));
+	{
+		if (errno == ENOENT)
+		{
+			char *last_slash = strrchr(filename, '/');
+			if (last_slash != NULL)
+			{
+				char dirpath[MAXPGPATH];
+				size_t len = last_slash - filename;
+				if (len >= sizeof(dirpath))
+					len = sizeof(dirpath) - 1;
+				memcpy(dirpath, filename, len);
+				dirpath[len] = '\0';
+				(void) MakePGDirectoryRecursive(dirpath);
+			}
+		}
+		f = AllocateFile(filename, replace ? "ab" : "wb");
+		if (!f)
+			ereport(ERROR, (errcode_for_file_access(), errmsg("could not open file \"%s\" for writing: %m", filename)));
+	}
 
 	count = fwrite(VARDATA_ANY(data), 1, VARSIZE_ANY_EXHDR(data), f);
 	if (count != VARSIZE_ANY_EXHDR(data) || FreeFile(f))
