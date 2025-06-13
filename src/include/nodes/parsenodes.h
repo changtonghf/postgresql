@@ -79,21 +79,23 @@ typedef enum SetQuantifier
  */
 typedef uint32 AclMode;			/* a bitmask of privilege bits */
 
-#define ACL_INSERT		(1<<0)	/* for relations */
-#define ACL_SELECT		(1<<1)
-#define ACL_UPDATE		(1<<2)
-#define ACL_DELETE		(1<<3)
-#define ACL_TRUNCATE	(1<<4)
-#define ACL_REFERENCES	(1<<5)
-#define ACL_TRIGGER		(1<<6)
-#define ACL_EXECUTE		(1<<7)	/* for functions */
-#define ACL_USAGE		(1<<8)	/* for languages, namespaces, FDWs, and
-								 * servers */
-#define ACL_CREATE		(1<<9)	/* for namespaces and databases */
-#define ACL_CREATE_TEMP (1<<10) /* for databases */
-#define ACL_CONNECT		(1<<11) /* for databases */
-#define N_ACL_RIGHTS	12		/* 1 plus the last 1<<x */
-#define ACL_NO_RIGHTS	0
+#define ACL_INSERT		 (1<< 0)	/* for relations */
+#define ACL_SELECT		 (1<< 1)
+#define ACL_UPDATE		 (1<< 2)
+#define ACL_DELETE		 (1<< 3)
+#define ACL_TRUNCATE	 (1<< 4)
+#define ACL_REFERENCES	 (1<< 5)
+#define ACL_TRIGGER		 (1<< 6)
+#define ACL_EXECUTE		 (1<< 7)	/* for functions */
+#define ACL_USAGE		 (1<< 8)	/* for languages, namespaces, FDWs, and servers */
+#define ACL_CREATE		 (1<< 9)	/* for namespaces and databases */
+#define ACL_CREATE_TEMP  (1<<10)	/* for databases */
+#define ACL_CONNECT		 (1<<11)	/* for databases */
+#define ACL_SET			 (1<<12)	/* for configuration parameters */
+#define ACL_ALTER_SYSTEM (1<<13)	/* for configuration parameters */
+#define ACL_MAINTAIN	 (1<<14)	/* for relations */
+#define N_ACL_RIGHTS	     15		/* 1 plus the last 1<<x */
+#define ACL_NO_RIGHTS	      0
 /* Currently, SELECT ... FOR [KEY] UPDATE/SHARE requires UPDATE privileges */
 #define ACL_SELECT_FOR_UPDATE	ACL_UPDATE
 

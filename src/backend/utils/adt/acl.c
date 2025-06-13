@@ -306,6 +306,15 @@ aclparse(const char *s, AclItem *aip)
 			case ACL_CONNECT_CHR:
 				read = ACL_CONNECT;
 				break;
+			case ACL_SET_CHR:
+				read = ACL_SET;
+				break;
+			case ACL_ALTER_SYSTEM_CHR:
+				read = ACL_ALTER_SYSTEM;
+				break;
+			case ACL_MAINTAIN_CHR:
+				read = ACL_MAINTAIN;
+				break;
 			case 'R':			/* ignore old RULE privileges */
 				read = 0;
 				break;
@@ -1602,6 +1611,12 @@ convert_priv_string(text *priv_type_text)
 		return ACL_CREATE_TEMP;
 	if (pg_strcasecmp(priv_type, "CONNECT") == 0)
 		return ACL_CONNECT;
+	if (pg_strcasecmp(priv_type, "SET") == 0)
+		return ACL_SET;
+	if (pg_strcasecmp(priv_type, "ALTER SYSTEM") == 0)
+		return ACL_ALTER_SYSTEM;
+	if (pg_strcasecmp(priv_type, "MAINTAIN") == 0)
+		return ACL_MAINTAIN;
 	if (pg_strcasecmp(priv_type, "RULE") == 0)
 		return 0;				/* ignore old RULE privileges */
 
@@ -1698,6 +1713,12 @@ convert_aclright_to_string(int aclright)
 			return "TEMPORARY";
 		case ACL_CONNECT:
 			return "CONNECT";
+		case ACL_SET:
+			return "SET";
+		case ACL_ALTER_SYSTEM:
+			return "ALTER SYSTEM";
+		case ACL_MAINTAIN:
+			return "MAINTAIN";
 		default:
 			elog(ERROR, "unrecognized aclright: %d", aclright);
 			return NULL;

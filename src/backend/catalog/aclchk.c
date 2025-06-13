@@ -3260,6 +3260,12 @@ string_to_privilege(const char *privname)
 		return ACL_CREATE_TEMP;
 	if (strcmp(privname, "connect") == 0)
 		return ACL_CONNECT;
+	if (strcmp(privname, "set") == 0)
+		return ACL_SET;
+	if (strcmp(privname, "alter system") == 0)
+		return ACL_ALTER_SYSTEM;
+	if (strcmp(privname, "maintain") == 0)
+		return ACL_MAINTAIN;
 	if (strcmp(privname, "rule") == 0)
 		return 0;				/* ignore old RULE privileges */
 	ereport(ERROR,
@@ -3297,6 +3303,12 @@ privilege_to_string(AclMode privilege)
 			return "TEMP";
 		case ACL_CONNECT:
 			return "CONNECT";
+		case ACL_SET:
+			return "SET";
+		case ACL_ALTER_SYSTEM:
+			return "ALTER SYSTEM";
+		case ACL_MAINTAIN:
+			return "MAINTAIN";
 		default:
 			elog(ERROR, "unrecognized privilege: %d", (int) privilege);
 	}
