@@ -344,9 +344,22 @@ shell_out(PG_FUNCTION_ARGS)
  * We must disallow input of pg_node_tree values because the SQL functions
  * that operate on the type are not secure against malformed input.
  * We do want to allow output, though.
+ *
+ * PSEUDOTYPE_DUMMY_INPUT_FUNC(pg_node_tree);
+ * PSEUDOTYPE_DUMMY_RECEIVE_FUNC(pg_node_tree);
  */
-PSEUDOTYPE_DUMMY_INPUT_FUNC(pg_node_tree);
-PSEUDOTYPE_DUMMY_RECEIVE_FUNC(pg_node_tree);
+
+Datum
+pg_node_tree_in(PG_FUNCTION_ARGS)
+{
+	return textin(fcinfo);
+}
+
+Datum
+pg_node_tree_recv(PG_FUNCTION_ARGS)
+{
+	return textrecv(fcinfo);
+}
 
 Datum
 pg_node_tree_out(PG_FUNCTION_ARGS)
