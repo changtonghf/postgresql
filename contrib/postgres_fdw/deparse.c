@@ -2355,6 +2355,7 @@ deparseColumnRef(StringInfo buf, int varno, int varattno, RangeTblEntry *rte,
 	else
 	{
 		char	   *colname = NULL;
+		bool		unquotable = false;
 		List	   *options;
 		ListCell   *lc;
 
@@ -2371,10 +2372,10 @@ deparseColumnRef(StringInfo buf, int varno, int varattno, RangeTblEntry *rte,
 			DefElem    *def = (DefElem *) lfirst(lc);
 
 			if (strcmp(def->defname, "column_name") == 0)
-			{
 				colname = defGetString(def);
-				break;
-			}
+
+			if (strcmp(def->defname, "unquotable") == 0)
+				unquotable = defGetBoolean(def);
 		}
 
 		/*
@@ -2387,7 +2388,7 @@ deparseColumnRef(StringInfo buf, int varno, int varattno, RangeTblEntry *rte,
 		if (qualify_col)
 			ADD_REL_QUALIFIER(buf, varno);
 
-		appendStringInfoString(buf, quote_identifier(colname));
+		appendStringInfoString(buf, unquotable ? colname : quote_identifier(colname));
 	}
 }
 
