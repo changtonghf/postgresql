@@ -42,7 +42,7 @@ extern Node *scanNSItemForColumn(ParseState *pstate, ParseNamespaceItem *nsitem,
 extern Node *colNameToVar(ParseState *pstate, const char *colname, bool localonly,
 						  int location);
 extern void markVarForSelectPriv(ParseState *pstate, Var *var);
-extern Relation parserOpenTable(ParseState *pstate, const RangeVar *relation,
+extern Relation parserOpenTable(ParseState *pstate, RangeVar *relation,
 								int lockmode);
 extern ParseNamespaceItem *addRangeTableEntry(ParseState *pstate,
 											  RangeVar *relation,

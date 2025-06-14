@@ -135,7 +135,7 @@ try_relation_open(Oid relationId, LOCKMODE lockmode)
  * ----------------
  */
 Relation
-relation_openrv(const RangeVar *relation, LOCKMODE lockmode)
+relation_openrv(RangeVar *relation, LOCKMODE lockmode)
 {
 	Oid			relOid;
 
@@ -170,7 +170,7 @@ relation_openrv(const RangeVar *relation, LOCKMODE lockmode)
  * ----------------
  */
 Relation
-relation_openrv_extended(const RangeVar *relation, LOCKMODE lockmode,
+relation_openrv_extended(RangeVar *relation, LOCKMODE lockmode,
 						 bool missing_ok)
 {
 	Oid			relOid;

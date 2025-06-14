@@ -19,8 +19,8 @@
 #include "utils/relcache.h"
 
 extern Relation table_open(Oid relationId, LOCKMODE lockmode);
-extern Relation table_openrv(const RangeVar *relation, LOCKMODE lockmode);
-extern Relation table_openrv_extended(const RangeVar *relation,
+extern Relation table_openrv(RangeVar *relation, LOCKMODE lockmode);
+extern Relation table_openrv_extended(RangeVar *relation,
 									  LOCKMODE lockmode, bool missing_ok);
 extern Relation try_table_open(Oid relationId, LOCKMODE lockmode);
 extern void table_close(Relation relation, LOCKMODE lockmode);

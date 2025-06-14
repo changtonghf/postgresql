@@ -99,7 +99,7 @@ try_table_open(Oid relationId, LOCKMODE lockmode)
  * ----------------
  */
 Relation
-table_openrv(const RangeVar *relation, LOCKMODE lockmode)
+table_openrv(RangeVar *relation, LOCKMODE lockmode)
 {
 	Relation	r;
 
@@ -129,7 +129,7 @@ table_openrv(const RangeVar *relation, LOCKMODE lockmode)
  * ----------------
  */
 Relation
-table_openrv_extended(const RangeVar *relation, LOCKMODE lockmode,
+table_openrv_extended(RangeVar *relation, LOCKMODE lockmode,
 					  bool missing_ok)
 {
 	Relation	r;
