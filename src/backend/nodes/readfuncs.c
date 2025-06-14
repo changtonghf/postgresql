@@ -524,6 +524,7 @@ _readRangeVar(void)
 	READ_CHAR_FIELD(relpersistence);
 	READ_NODE_FIELD(alias);
 	READ_LOCATION_FIELD(location);
+	READ_STRING_FIELD(foreignserver);
 
 	READ_DONE();
 }

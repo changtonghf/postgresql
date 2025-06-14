@@ -430,6 +430,7 @@ makeRangeVar(char *schemaname, char *relname, int location)
 	r->relpersistence = RELPERSISTENCE_PERMANENT;
 	r->alias = NULL;
 	r->location = location;
+	r->foreignserver = NULL;
 
 	return r;
 }

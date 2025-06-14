@@ -113,6 +113,7 @@ _equalRangeVar(const RangeVar *a, const RangeVar *b)
 	COMPARE_SCALAR_FIELD(relpersistence);
 	COMPARE_NODE_FIELD(alias);
 	COMPARE_LOCATION_FIELD(location);
+	COMPARE_STRING_FIELD(foreignserver);
 
 	return true;
 }

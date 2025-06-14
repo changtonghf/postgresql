@@ -1077,6 +1077,7 @@ _outRangeVar(StringInfo str, const RangeVar *node)
 	WRITE_CHAR_FIELD(relpersistence);
 	WRITE_NODE_FIELD(alias);
 	WRITE_LOCATION_FIELD(location);
+	WRITE_STRING_FIELD(foreignserver);
 }
 
 static void

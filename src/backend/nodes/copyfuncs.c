@@ -1377,6 +1377,7 @@ _copyRangeVar(const RangeVar *from)
 	COPY_SCALAR_FIELD(relpersistence);
 	COPY_NODE_FIELD(alias);
 	COPY_LOCATION_FIELD(location);
+	COPY_STRING_FIELD(foreignserver);
 
 	return newnode;
 }
