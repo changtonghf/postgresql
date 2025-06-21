@@ -1038,8 +1038,8 @@ pgss_ExecutorEnd(QueryDesc *queryDesc)
 {
 	uint64		queryId = queryDesc->plannedstmt->queryId;
 
-	if (queryId != UINT64CONST(0) && queryDesc->totaltime &&
-		pgss_enabled(exec_nested_level))
+	if (queryId != UINT64CONST(0) && queryDesc->totaltime && pgss_enabled(exec_nested_level) 
+	&& (queryDesc->sourceText != NULL && strlen(queryDesc->sourceText) > 0))
 	{
 		/*
 		 * Make sure stats accumulation is done.  (Note: it's okay if several
