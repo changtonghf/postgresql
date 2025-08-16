@@ -808,7 +808,7 @@ static void
 add_module_to_inline_search_path(InlineSearchPath& searchpath, llvm::StringRef modpath)
 {
 	/* only extension in libdir are candidates for inlining for now */
-	if (!modpath.startswith("$libdir/"))
+	if (!modpath.starts_with("$libdir/"))
 		return;
 
 	/* if there's no match, attempt to load */
